@@ -2,13 +2,25 @@ import { MongoClient, type Db } from 'mongodb';
 import { config } from './config.js';
 
 let client: MongoClient | undefined;
+let customDb: Db | undefined;
+
+/**
+ * Sets a custom DB instance (useful for unit tests or mocking).
+ */
+export function setDb(db: Db | undefined): void {
+  customDb = db;
+}
 
 /**
  * Connects to MongoDB if not already connected and returns the database instance.
  */
 export async function getDb(): Promise<Db> {
+  if (customDb) return customDb;
   if (!client) {
-    client = new MongoClient(config.mongoUrl);
+    client = new MongoClient(config.mongoUrl, {
+      serverSelectionTimeoutMS: 2000,
+      connectTimeoutMS: 2000,
+    });
     await client.connect();
   }
   return client.db();
