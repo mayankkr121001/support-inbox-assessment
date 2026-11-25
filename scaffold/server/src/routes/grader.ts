@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { config } from '../config.js';
 import { claimConversation } from '../services/conversationService.js';
+import { isKnownWorkspace, queueReply } from '../services/outboundService.js';
 
 export const graderRouter = Router();
 
@@ -33,6 +34,52 @@ graderRouter.post('/__grader/claim', async (req, res, next) => {
     }
 
     res.status(200).json({ ok: true, assignee: result.conversation.assignee });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /__grader/reply { workspace, contact, text, client_ref }
+ * Uses the exact same queueReply service as the UI.
+ */
+graderRouter.post('/__grader/reply', async (req, res, next) => {
+  try {
+    const { workspace, contact, text, client_ref } = req.body ?? {};
+    if (
+      typeof workspace !== 'string' ||
+      !workspace ||
+      typeof contact !== 'string' ||
+      !contact ||
+      typeof text !== 'string' ||
+      !text ||
+      typeof client_ref !== 'string' ||
+      !client_ref
+    ) {
+      res.status(400).json({
+        error: 'workspace, contact, text, and client_ref are required',
+      });
+      return;
+    }
+
+    if (!isKnownWorkspace(workspace)) {
+      res.status(404).json({ error: 'Unknown workspace' });
+      return;
+    }
+
+    const result = await queueReply({
+      workspace,
+      contact,
+      text,
+      clientRef: client_ref,
+    });
+
+    res.status(202).json({
+      ok: true,
+      client_ref: result.clientRef,
+      duplicate: result.duplicate,
+      status: result.status,
+    });
   } catch (err) {
     next(err);
   }

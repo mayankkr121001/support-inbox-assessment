@@ -46,7 +46,17 @@ export async function ensureIndexes(db: Db): Promise<void> {
       },
     ),
     db.collection('messages').createIndex(
+      { workspace: 1, clientRef: 1 },
+      {
+        unique: true,
+        partialFilterExpression: { clientRef: { $type: 'string' } },
+      },
+    ),
+    db.collection('messages').createIndex(
       { workspace: 1, contact: 1, occurredAt: 1, messageId: 1 },
+    ),
+    db.collection('messages').createIndex(
+      { direction: 1, status: 1, acceptedByProvider: 1, nextAttemptAt: 1 },
     ),
     db.collection('webhook_events').createIndex(
       { eventId: 1 },

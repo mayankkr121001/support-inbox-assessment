@@ -8,6 +8,7 @@ import {
   listConversations,
   reopenConversation,
 } from '../services/conversationService.js';
+import { queueReply } from '../services/outboundService.js';
 
 export const conversationsRouter = Router();
 
@@ -122,6 +123,50 @@ conversationsRouter.post(
 );
 
 /**
+ * POST /api/conversations/:contact/replies?workspace=<id>
+ * Queues an outbound reply to the contact and returns 202 once stored.
+ */
+conversationsRouter.post(
+  '/api/conversations/:contact/replies',
+  async (req, res, next) => {
+    try {
+      const workspace = req.query.workspace as string;
+      const contact = req.params.contact;
+      const text =
+        req.body && typeof req.body === 'object' ? req.body.text : undefined;
+      const clientRef =
+        req.body &&
+        typeof req.body === 'object' &&
+        typeof req.body.client_ref === 'string' &&
+        req.body.client_ref
+          ? req.body.client_ref
+          : undefined;
+
+      if (typeof text !== 'string' || !text.trim()) {
+        res.status(400).json({ error: 'text is required' });
+        return;
+      }
+
+      const result = await queueReply({
+        workspace,
+        contact,
+        text,
+        clientRef,
+      });
+
+      res.status(202).json({
+        ok: true,
+        client_ref: result.clientRef,
+        duplicate: result.duplicate,
+        status: result.status,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
  * POST /api/conversations/:contact/reopen?workspace=<id>
  * Reopens a closed conversation.
  */
@@ -139,6 +184,50 @@ conversationsRouter.post(
       }
 
       res.status(200).json({ ok: true, conversation });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * POST /api/conversations/:contact/replies?workspace=<id>
+ * Queues an outbound reply to the contact and returns 202 once stored.
+ */
+conversationsRouter.post(
+  '/api/conversations/:contact/replies',
+  async (req, res, next) => {
+    try {
+      const workspace = req.query.workspace as string;
+      const contact = req.params.contact;
+      const text =
+        req.body && typeof req.body === 'object' ? req.body.text : undefined;
+      const clientRef =
+        req.body &&
+        typeof req.body === 'object' &&
+        typeof req.body.client_ref === 'string' &&
+        req.body.client_ref
+          ? req.body.client_ref
+          : undefined;
+
+      if (typeof text !== 'string' || !text.trim()) {
+        res.status(400).json({ error: 'text is required' });
+        return;
+      }
+
+      const result = await queueReply({
+        workspace,
+        contact,
+        text,
+        clientRef,
+      });
+
+      res.status(202).json({
+        ok: true,
+        client_ref: result.clientRef,
+        duplicate: result.duplicate,
+        status: result.status,
+      });
     } catch (err) {
       next(err);
     }

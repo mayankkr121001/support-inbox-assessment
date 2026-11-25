@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import express, { Router } from 'express';
 import { config } from '../config.js';
 import { storeInboundMessage } from '../services/inboundService.js';
+import { handleMessageStatus } from '../services/outboundService.js';
 
 const MAX_TIMESTAMP_AGE_SECONDS = 300; // 5 minutes
 
@@ -97,15 +98,55 @@ webhooksRouter.post(
       const workspace =
         typeof payload.workspace === 'string' ? payload.workspace : '';
 
-      // Unknown event type (or not yet implemented): acknowledge 2xx so Pigeon does not retry
-      if (eventType && eventType !== 'message.inbound') {
-        res.status(200).json({ ok: true, ignored: eventType });
-        return;
-      }
-
       // Unknown workspace: acknowledge 2xx and ignore per PIGEON.md
       if (workspace && !Object.hasOwn(config.pigeon.apiKeys, workspace)) {
         res.status(200).json({ ok: true, ignored: 'unknown_workspace' });
+        return;
+      }
+
+      if (eventType === 'message.status') {
+        const eventId = typeof payload.id === 'string' ? payload.id : '';
+        const occurredAtRaw = payload.occurred_at;
+        const occurredAt =
+          typeof occurredAtRaw === 'string'
+            ? new Date(occurredAtRaw)
+            : new Date(NaN);
+        const data = payload.data;
+        const status =
+          isPlainObject(data) && typeof data.status === 'string'
+            ? data.status
+            : '';
+
+        if (
+          !eventId ||
+          !workspace ||
+          Number.isNaN(occurredAt.getTime()) ||
+          !isPlainObject(data) ||
+          typeof data.client_ref !== 'string' ||
+          !data.client_ref ||
+          (status !== 'sent' && status !== 'delivered' && status !== 'failed')
+        ) {
+          res.status(400).json({ error: 'Invalid message.status payload' });
+          return;
+        }
+
+        const result = await handleMessageStatus({
+          eventId,
+          workspace,
+          clientRef: data.client_ref,
+          messageId:
+            typeof data.message_id === 'string' ? data.message_id : undefined,
+          status,
+          occurredAt,
+        });
+
+        res.status(200).json({ ok: true, ...result });
+        return;
+      }
+
+      // Unknown event type: acknowledge 2xx so Pigeon does not retry
+      if (eventType && eventType !== 'message.inbound') {
+        res.status(200).json({ ok: true, ignored: eventType });
         return;
       }
 
