@@ -3,12 +3,14 @@ import { createApp } from './app.js';
 import { config } from './config.js';
 import { closeDb, connectDb } from './db.js';
 import { startOutboundWorker, stopOutboundWorker } from './services/outboundService.js';
+import { attachWebSocketServer } from './ws/socketServer.js';
 
 async function start(): Promise<void> {
   await connectDb();
 
   const app = createApp();
   const server = createServer(app);
+  const wsHandle = attachWebSocketServer(server);
 
   server.listen(config.port, () => {
     console.log(`server on http://localhost:${config.port}`);
@@ -18,6 +20,7 @@ async function start(): Promise<void> {
   const shutdown = async (signal: string) => {
     console.log(`received ${signal}, shutting down`);
     stopOutboundWorker();
+    await wsHandle.close();
     server.close(async () => {
       await closeDb();
       process.exit(0);

@@ -3,6 +3,7 @@ import { MongoServerError, type Db } from 'mongodb';
 import { config } from '../config.js';
 import { getDb } from '../db.js';
 import { getRedis } from '../redis.js';
+import { publishWorkspaceEvent } from './eventService.js';
 
 export type OutboundStatus = 'queued' | 'sent' | 'delivered' | 'failed';
 
@@ -200,6 +201,20 @@ export async function handleMessageStatus(
     if (!isDuplicateKeyError(err)) {
       throw err;
     }
+  }
+
+  if (updated) {
+    await publishWorkspaceEvent(
+      input.workspace,
+      {
+        type: 'message.status',
+        contact: existing.contact,
+        client_ref: input.clientRef,
+        status: input.status,
+        message_id: input.messageId ?? existing.messageId,
+      },
+      db,
+    );
   }
 
   return { found: true, updated };

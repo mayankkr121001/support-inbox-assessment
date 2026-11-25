@@ -1,6 +1,7 @@
 import type { Db } from 'mongodb';
 import { MongoServerError } from 'mongodb';
 import { getDb } from '../db.js';
+import { publishWorkspaceEvent } from './eventService.js';
 
 export interface ConversationDoc {
   workspace: string;
@@ -149,6 +150,15 @@ export async function claimConversation(
     );
 
   if (result) {
+    await publishWorkspaceEvent(
+      workspace,
+      {
+        type: 'conversation.assigned',
+        contact,
+        assignee: result.assignee,
+      },
+      db,
+    );
     return { success: true, conversation: result };
   }
 

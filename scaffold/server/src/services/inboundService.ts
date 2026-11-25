@@ -1,5 +1,6 @@
 import { MongoServerError, type Db } from 'mongodb';
 import { getDb } from '../db.js';
+import { publishWorkspaceEvent } from './eventService.js';
 
 export interface InboundMessageInput {
   eventId: string;
@@ -25,7 +26,7 @@ export async function storeInboundMessage(
   const db = dbOverride ?? (await getDb());
   const now = new Date();
 
-  let duplicate = false;
+  let messageDuplicate = false;
 
   try {
     await db.collection('messages').insertOne({
@@ -41,8 +42,10 @@ export async function storeInboundMessage(
     if (!isDuplicateKeyError(err)) {
       throw err;
     }
-    duplicate = true;
+    messageDuplicate = true;
   }
+
+  let duplicate = messageDuplicate;
 
   // Ensure conversation exists even on retry after a partial crash,
   // and keep lastActivityAt at the newest occurredAt seen so far.
@@ -85,6 +88,20 @@ export async function storeInboundMessage(
       throw err;
     }
     duplicate = true;
+  }
+
+  if (!messageDuplicate) {
+    await publishWorkspaceEvent(
+      input.workspace,
+      {
+        type: 'message.inbound',
+        contact: input.contact,
+        message_id: input.messageId,
+        text: input.text,
+        occurred_at: input.occurredAt.toISOString(),
+      },
+      db,
+    );
   }
 
   return { duplicate };

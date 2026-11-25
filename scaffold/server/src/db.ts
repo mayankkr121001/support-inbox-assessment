@@ -62,6 +62,10 @@ export async function ensureIndexes(db: Db): Promise<void> {
       { eventId: 1 },
       { unique: true },
     ),
+    db.collection('workspace_events').createIndex(
+      { workspace: 1, seq: 1 },
+      { unique: true },
+    ),
   ]);
 }
 
