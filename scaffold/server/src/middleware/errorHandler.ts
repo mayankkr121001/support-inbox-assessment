@@ -16,8 +16,21 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  if (err instanceof SyntaxError && 'status' in err && err.status === 400) {
-    res.status(400).json({ error: 'Invalid JSON body' });
+  const status =
+    typeof err === 'object' && err !== null && 'status' in err && typeof err.status === 'number'
+      ? err.status
+      : typeof err === 'object' && err !== null && 'statusCode' in err && typeof err.statusCode === 'number'
+        ? err.statusCode
+        : undefined;
+
+  if (status !== undefined && status >= 400 && status < 500) {
+    const message =
+      err instanceof SyntaxError
+        ? 'Invalid JSON body'
+        : err instanceof Error
+          ? err.message
+          : 'Bad request';
+    res.status(status).json({ error: message });
     return;
   }
 

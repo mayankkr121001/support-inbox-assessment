@@ -27,8 +27,14 @@ export function verifyPigeonSignature(
     if (eqIndex <= 0) continue;
     const key = trimmed.slice(0, eqIndex);
     const value = trimmed.slice(eqIndex + 1);
-    if (key === 't') timestampStr = value;
-    if (key === 'v1') v1Hex = value;
+    if (key === 't') {
+      if (timestampStr !== undefined) return false;
+      timestampStr = value;
+    }
+    if (key === 'v1') {
+      if (v1Hex !== undefined) return false;
+      v1Hex = value;
+    }
   }
 
   if (!timestampStr || !/^\d+$/.test(timestampStr)) return false;

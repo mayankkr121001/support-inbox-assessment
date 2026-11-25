@@ -1,4 +1,4 @@
-import { MongoServerError } from 'mongodb';
+import { MongoServerError, type Db } from 'mongodb';
 import { getDb } from '../db.js';
 
 export interface InboundMessageInput {
@@ -20,8 +20,9 @@ function isDuplicateKeyError(err: unknown): boolean {
  */
 export async function storeInboundMessage(
   input: InboundMessageInput,
+  dbOverride?: Db,
 ): Promise<{ duplicate: boolean }> {
-  const db = await getDb();
+  const db = dbOverride ?? (await getDb());
   const now = new Date();
 
   let duplicate = false;
